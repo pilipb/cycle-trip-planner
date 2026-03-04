@@ -10,8 +10,8 @@ from src.api.main import app
 client = TestClient(app)
 
 
-def _mock_run_turn(reply="Here is your cycling itinerary.", tools=None, turns=1):
-    return (reply, tools or [], turns)
+def _mock_run_turn(reply="Here is your cycling itinerary.", tools=None, turns=1, route_geojson=None):
+    return (reply, tools or [], turns, route_geojson)
 
 
 def test_health_endpoint():
@@ -79,6 +79,6 @@ def test_chat_response_schema():
     with patch("src.api.routes.run_turn", return_value=_mock_run_turn()):
         response = client.post("/api/v1/chat", json={"message": "Test"})
     data = response.json()
-    assert set(data.keys()) >= {"session_id", "reply", "tools_used", "turn_count"}
+    assert set(data.keys()) >= {"session_id", "reply", "tools_used", "turn_count", "route_geojson"}
     assert isinstance(data["tools_used"], list)
     assert isinstance(data["turn_count"], int)

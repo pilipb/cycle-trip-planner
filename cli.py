@@ -33,7 +33,7 @@ def main() -> None:
             sys.exit(0)
 
         try:
-            reply, tools_used, _ = run_turn(session_id, user_input)
+            reply, tools_used, _, _ = run_turn(session_id, user_input)
         except Exception as exc:
             print(f"[Error: {exc}]")
             continue

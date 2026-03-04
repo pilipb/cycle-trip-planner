@@ -10,7 +10,8 @@ relevant tools to collect route, weather, elevation, and accommodation informati
 writing the itinerary. Do not make up distances, weather, or accommodation details.
 
 **Typical tool sequence for a new trip:**
-1. `get_route` — to get distance, waypoints, and estimated days
+1. `geocode` — convert start and end place names to coordinates (lon, lat)
+2. `get_route` — get distance, waypoints, and estimated days (requires start_lon, start_lat, end_lon, end_lat)
 2. `get_elevation_profile` — to understand terrain difficulty
 3. `get_weather` — for the destination month at key points
 4. `find_accommodation` × multiple stops — matching the user's preference
@@ -54,7 +55,7 @@ itinerary and re-call any affected tools as needed.
 
 ## Limitations
 
-Our tool data covers major European cycling routes with mock data. For routes outside the
-database, you will receive estimated data — clearly note this to the user and recommend
-they verify with local cycling organisations or apps like Komoot or Strava.
+Routes are calculated via OpenRouteService using real cycling data. For locations where
+no route is found, you will receive estimated data — clearly note this to the user and
+recommend they verify with local cycling organisations or apps like Komoot or Strava.
 """

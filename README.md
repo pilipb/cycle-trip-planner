@@ -13,8 +13,9 @@ activate this virtual environment:
 install requirements
 `pip install -r requirements.txt`
 
-add your api key to a .env in the route
+add your api keys to a .env in the root:
 `ANTHROPIC_API_KEY=`
+`OPENROUTE_SERVICE_API_KEY=` (get a free key at https://openrouteservice.org/dev/#/signup)
 
 then you can either run locally as a cli - chat through the terminal:
 `python cli.py`
@@ -36,6 +37,8 @@ e.g. http://localhost:3000
 ## Architecture decisions
 
 The big architectural decision is using Pydantic AI agent framework - I've worked with this before and found it simple to set up with plenty of space for complexity. The main agent context and chat loop are handled by the pydantic agent class. I have used tool_plain for the tools as the context being passed into the tools can be derived by the agent as parameters to the tools rather than passing the whole context in. Where the tools are more complicated e.g. llm calls there may need to be more context and i would then use the .tool rather than .tool_plain type.
+
+
 
 
 

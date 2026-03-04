@@ -1,11 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sendChatMessage } from "@/lib/api";
+import type { RouteGeoJSON } from "@/lib/api";
 
-type Message = { role: "user" | "assistant"; content: string };
+const RouteMap = dynamic(() => import("@/components/RouteMap"), { ssr: false });
+
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  route_geojson?: RouteGeoJSON | null;
+};
 
 function generateSessionId(): string {
   return crypto.randomUUID();
@@ -39,7 +47,14 @@ export default function Home() {
     try {
       const res = await sendChatMessage(text, sessionId);
       setSessionId(res.session_id);
-      setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content: res.reply,
+          route_geojson: res.route_geojson ?? undefined,
+        },
+      ]);
     } catch (err) {
       setMessages((m) => [
         ...m,
@@ -95,8 +110,13 @@ export default function Home() {
                     {msg.role === "user" ? (
                       <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
                     ) : (
-                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-pre:my-2 prose-pre:text-xs prose-code:bg-zinc-200 prose-code:dark:bg-zinc-700 prose-code:px-1 prose-code:rounded">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      <div className="space-y-3">
+                        {msg.route_geojson?.features?.length ? (
+                          <RouteMap geojson={msg.route_geojson} />
+                        ) : null}
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-pre:my-2 prose-pre:text-xs prose-code:bg-zinc-200 prose-code:dark:bg-zinc-700 prose-code:px-1 prose-code:rounded">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        </div>
                       </div>
                     )}
                   </div>

@@ -17,14 +17,14 @@ def _make_mock_result(reply: str = "Here is your cycling plan.", messages: list 
 def test_run_turn_returns_reply():
     mock_result = _make_mock_result("Test reply")
     with patch("src.agent.session.agent.run_sync", return_value=mock_result):
-        reply, tools_used, turn_count = run_turn("session-001", "Plan a trip from Berlin to Prague")
+        reply, tools_used, turn_count, _ = run_turn("session-001", "Plan a trip from Berlin to Prague")
     assert reply == "Test reply"
 
 
 def test_run_turn_returns_empty_tools_when_no_tool_messages():
     mock_result = _make_mock_result(messages=[])
     with patch("src.agent.session.agent.run_sync", return_value=mock_result):
-        _, tools_used, _ = run_turn("session-002", "Hello")
+        _, tools_used, _, _ = run_turn("session-002", "Hello")
     assert tools_used == []
 
 
@@ -58,8 +58,8 @@ def test_run_turn_different_sessions_are_independent():
     mock_b = _make_mock_result("Reply B", messages=msgs_b)
 
     with patch("src.agent.session.agent.run_sync", side_effect=[mock_a, mock_b]):
-        reply_a, _, _ = run_turn("session-A", "Message A")
-        reply_b, _, _ = run_turn("session-B", "Message B")
+        reply_a, _, _, _ = run_turn("session-A", "Message A")
+        reply_b, _, _, _ = run_turn("session-B", "Message B")
 
     assert reply_a == "Reply A"
     assert reply_b == "Reply B"

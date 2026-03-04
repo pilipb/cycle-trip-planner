@@ -13,3 +13,4 @@ class ChatResponse(BaseModel):
     reply: str
     tools_used: list[str] = []
     turn_count: int
+    route_geojson: dict | None = None  # GeoJSON FeatureCollection for map display when route was fetched

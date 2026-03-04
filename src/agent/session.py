@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.agent.agent import agent
+from src.tools.route import _route_geojson_store, _session_id_ctx
 
 try:
     from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse
@@ -46,7 +47,7 @@ def _count_turns(messages: list) -> int:
     return count
 
 
-def run_turn(session_id: str, user_message: str) -> tuple[str, list[str], int]:
+def run_turn(session_id: str, user_message: str) -> tuple[str, list[str], int, dict | None]:
     """
     Run one turn of the conversation for a given session.
 
@@ -56,7 +57,12 @@ def run_turn(session_id: str, user_message: str) -> tuple[str, list[str], int]:
     history = _sessions.get(session_id, [])
     prev_len = len(history)
 
-    result = agent.run_sync(user_message, message_history=history)
+    # Set context so get_route can store GeoJSON for frontend (not sent to model)
+    token = _session_id_ctx.set(session_id)
+    try:
+        result = agent.run_sync(user_message, message_history=history)
+    finally:
+        _session_id_ctx.reset(token)
 
     all_messages = result.all_messages()
     _sessions[session_id] = all_messages
@@ -64,10 +70,11 @@ def run_turn(session_id: str, user_message: str) -> tuple[str, list[str], int]:
     # Tools used only in this turn
     new_messages = all_messages[prev_len:]
     tools_used = _extract_tools_used(new_messages)
+    route_geojson = _route_geojson_store.pop(session_id, None)
 
     turn_count = _count_turns(all_messages)
 
-    return result.output, tools_used, turn_count
+    return result.output, tools_used, turn_count, route_geojson
 
 
 def clear_session(session_id: str) -> None:
