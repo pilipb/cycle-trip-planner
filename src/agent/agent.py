@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 
 from pydantic_ai import Agent
 
@@ -13,10 +14,10 @@ from src.tools.weather import WeatherResult, get_weather as _get_weather
 
 agent: Agent[None, str] = Agent(
     model="anthropic:claude-sonnet-4-6",
-    system_prompt=SYSTEM_PROMPT,
+    system_prompt=f"{SYSTEM_PROMPT}\n\nToday's date is {datetime.now().strftime('%d %B %Y')}",
 )
 
-
+# plain tools do not take in agent context
 @agent.tool_plain
 def get_route(origin: str, destination: str) -> RouteResult:
     """Get cycling route details between two locations, including distance, waypoints, and surface type."""
@@ -27,7 +28,6 @@ def get_route(origin: str, destination: str) -> RouteResult:
 def get_elevation_profile(origin: str, destination: str) -> ElevationResult:
     """Get the elevation profile for a cycling route, including total ascent/descent and challenging sections."""
     return _get_elevation_profile(origin, destination)
-
 
 @agent.tool_plain
 def get_weather(location: str, month: str) -> WeatherResult:
