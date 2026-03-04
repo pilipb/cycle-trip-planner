@@ -4,7 +4,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agent.session import _sessions, clear_session, run_turn, run_turn_stream
+from src.agent.session import (
+    _pending_deferred,
+    _sessions,
+    clear_session,
+    get_pending_tool_call_id,
+    run_turn,
+    run_turn_resume,
+    run_turn_stream,
+)
 
 
 def _make_mock_result(reply: str = "Here is your cycling plan.", messages: list | None = None):
@@ -105,3 +113,60 @@ async def test_run_turn_stream_yields_events_then_done():
     assert done_events[0]["tools_used"] == []
     assert done_events[0]["turn_count"] == 0
     assert "route_geojson" in done_events[0]
+
+
+def test_run_turn_returns_question_dict_when_deferred():
+    from pydantic_ai.output import DeferredToolRequests
+    from pydantic_ai.messages import ToolCallPart
+
+    _sessions.clear()
+    _pending_deferred.clear()
+
+    call = ToolCallPart(tool_name="ask_user", args={}, tool_call_id="tc-123")
+    deferred = DeferredToolRequests(
+        calls=[call],
+        approvals=[],
+        metadata={"tc-123": {"question": "How far per day?", "options": ["50 km", "100 km"]}},
+    )
+    mock_result = MagicMock()
+    mock_result.output = deferred
+    mock_result.all_messages.return_value = [MagicMock()]
+
+    with patch("src.agent.session.agent.run_sync", return_value=mock_result):
+        reply, tools_used, turn_count, _ = run_turn("defer-session", "Plan London to Edinburgh")
+
+    assert isinstance(reply, dict)
+    assert reply["question"] == "How far per day?"
+    assert reply["options"] == ["50 km", "100 km"]
+    assert reply["tool_call_id"] == "tc-123"
+    assert tools_used == []
+    assert get_pending_tool_call_id("defer-session") == "tc-123"
+
+
+def test_run_turn_resume_continues_after_answer():
+    _sessions.clear()
+    _pending_deferred.clear()
+
+    mock_result = MagicMock()
+    mock_result.output = "Here is your 5-day plan."
+    mock_result.all_messages.return_value = [MagicMock(), MagicMock()]
+
+    # Simulate pending state from a previous deferred run
+    from pydantic_ai.output import DeferredToolRequests
+    from pydantic_ai.messages import ToolCallPart
+
+    call = ToolCallPart(tool_name="ask_user", args={}, tool_call_id="tc-456")
+    _pending_deferred["resume-session"] = {
+        "messages": [MagicMock()],
+        "requests": DeferredToolRequests(calls=[call], approvals=[], metadata={}),
+    }
+
+    with patch("src.agent.session.agent.run_sync", return_value=mock_result) as mock_run:
+        reply, tools_used, _, _ = run_turn_resume("resume-session", "tc-456", "100 km")
+
+    assert reply == "Here is your 5-day plan."
+    mock_run.assert_called_once()
+    call_kw = mock_run.call_args.kwargs
+    assert "message_history" in call_kw
+    assert "deferred_tool_results" in call_kw
+    assert call_kw["deferred_tool_results"].calls["tc-456"] == "100 km"

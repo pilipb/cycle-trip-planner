@@ -40,12 +40,12 @@ function QuestionAnswerUI({
   const [freeText, setFreeText] = useState("");
   const hasOptions = pendingQuestion.options.length > 0;
 
-  if (hasOptions) {
-    return (
-      <div className="mt-3 space-y-2">
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          {pendingQuestion.question}
-        </p>
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        {pendingQuestion.question}
+      </p>
+      {hasOptions ? (
         <div className="flex flex-wrap gap-2">
           {pendingQuestion.options.map((opt) => (
             <button
@@ -59,15 +59,7 @@ function QuestionAnswerUI({
             </button>
           ))}
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-3 space-y-2">
-      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {pendingQuestion.question}
-      </p>
+      ) : null}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -83,7 +75,7 @@ function QuestionAnswerUI({
           type="text"
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
-          placeholder="Type your answer..."
+          placeholder={hasOptions ? "Or type your own answer..." : "Type your answer..."}
           disabled={disabled}
           className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-400"
         />

@@ -90,15 +90,19 @@ def _count_turns(messages: list) -> int:
     return count
 
 
-def run_turn(session_id: str, user_message: str) -> tuple[str, list[str], int, dict | None]:
+def run_turn(session_id: str, user_message: str) -> tuple[str | dict, list[str], int, dict | None]:
     """
     Run one turn of the conversation for a given session.
 
     Returns:
-        (reply, tools_used, turn_count)
+        (reply, tools_used, turn_count, route_geojson)
+        When the agent defers with ask_user, reply is a dict with keys:
+        question, options, tool_call_id (for CLI to display and await answer).
     """
     history = _sessions.get(session_id, [])
     prev_len = len(history)
+
+    _pending_deferred.pop(session_id, None)
 
     # Set context so get_route can store GeoJSON for frontend (not sent to model)
     token = _session_id_ctx.set(session_id)
@@ -107,17 +111,93 @@ def run_turn(session_id: str, user_message: str) -> tuple[str, list[str], int, d
     finally:
         _session_id_ctx.reset(token)
 
+    output = result.output
     all_messages = result.all_messages()
-    _sessions[session_id] = all_messages
 
-    # Tools used only in this turn
+    if isinstance(output, DeferredToolRequests):
+        requests = output
+        for call in requests.calls:
+            if call.tool_name == "ask_user":
+                meta = requests.metadata.get(call.tool_call_id, {})
+                question = meta.get("question", "")
+                options = meta.get("options", [])
+                _pending_deferred[session_id] = {
+                    "messages": all_messages,
+                    "requests": requests,
+                }
+                return (
+                    {"question": question, "options": options, "tool_call_id": call.tool_call_id},
+                    [],
+                    _count_turns(all_messages),
+                    None,
+                )
+
+    _sessions[session_id] = all_messages
     new_messages = all_messages[prev_len:]
     tools_used = _extract_tools_used(new_messages)
     route_geojson = _route_geojson_store.pop(session_id, None)
-
     turn_count = _count_turns(all_messages)
 
-    return result.output, tools_used, turn_count, route_geojson
+    return output, tools_used, turn_count, route_geojson
+
+
+def run_turn_resume(
+    session_id: str, tool_call_id: str, value: str
+) -> tuple[str | dict, list[str], int, dict | None]:
+    """
+    Resume a deferred run with the user's answer to an ask_user question.
+
+    Returns same shape as run_turn. May return another question dict if the agent
+    defers again.
+    """
+    pending = _pending_deferred.pop(session_id, None)
+    if not pending:
+        raise ValueError("No pending question for this session. Send a new message instead.")
+
+    messages = pending["messages"]
+    requests = pending["requests"]
+
+    results = DeferredToolResults()
+    results.calls[tool_call_id] = value
+
+    token = _session_id_ctx.set(session_id)
+    prev_len = len(messages)
+    try:
+        result = agent.run_sync(
+            message_history=messages,
+            deferred_tool_results=results,
+        )
+    finally:
+        _session_id_ctx.reset(token)
+
+    output = result.output
+    all_messages = result.all_messages()
+
+    if isinstance(output, DeferredToolRequests):
+        requests = output
+        for call in requests.calls:
+            if call.tool_name == "ask_user":
+                meta = requests.metadata.get(call.tool_call_id, {})
+                question = meta.get("question", "")
+                options = meta.get("options", [])
+                _pending_deferred[session_id] = {
+                    "messages": all_messages,
+                    "requests": requests,
+                }
+                return (
+                    {"question": question, "options": options, "tool_call_id": call.tool_call_id},
+                    [],
+                    _count_turns(all_messages),
+                    None,
+                )
+
+    _sessions[session_id] = all_messages
+    new_messages = all_messages[prev_len:]
+    tools_used = _extract_tools_used(new_messages)
+    route_geojson = _route_geojson_store.pop(session_id, None)
+    turn_count = _count_turns(all_messages)
+
+    return output, tools_used, turn_count, route_geojson
 
 
 async def run_turn_stream(
