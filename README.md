@@ -1,6 +1,9 @@
-# cycle-trip-planner
+# Cycle Trip Planner
 Agent to plan cycling trips. Agent has access to a real route planning API and mock data w.r.t. accomodation, weather etc.
 
+## Demo
+
+![Cycle Planner Demo](cycle-planner-demo.mp4)
 
 ## How to run locally
 
