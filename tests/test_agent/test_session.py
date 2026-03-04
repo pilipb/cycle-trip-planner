@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agent.session import _sessions, clear_session, run_turn
+from src.agent.session import _sessions, clear_session, run_turn, run_turn_stream
 
 
 def _make_mock_result(reply: str = "Here is your cycling plan.", messages: list | None = None):
@@ -75,3 +75,33 @@ def test_clear_session_removes_session():
 
 def test_clear_nonexistent_session_does_not_raise():
     clear_session("nonexistent-session-xyz")  # Should not raise
+
+
+@pytest.mark.asyncio
+async def test_run_turn_stream_yields_events_then_done():
+    from pydantic_ai import AgentRunResultEvent
+    from pydantic_ai.messages import PartDeltaEvent, TextPartDelta
+    from pydantic_ai.run import AgentRunResult
+
+    async def mock_run_stream_events(message, *, message_history=None):
+        yield PartDeltaEvent(index=0, delta=TextPartDelta(content_delta="Hello "))
+        yield PartDeltaEvent(index=0, delta=TextPartDelta(content_delta="world."))
+        mock_result = MagicMock(spec=AgentRunResult)
+        mock_result.output = "Hello world."
+        mock_result.all_messages.return_value = []
+        yield AgentRunResultEvent(result=mock_result)
+
+    with patch("src.agent.session.agent.run_stream_events", side_effect=mock_run_stream_events):
+        events = []
+        async for chunk in run_turn_stream("stream-session", "Hi"):
+            events.append(chunk)
+    text_deltas = [e for e in events if e.get("type") == "text"]
+    assert len(text_deltas) == 2
+    assert text_deltas[0]["delta"] == "Hello "
+    assert text_deltas[1]["delta"] == "world."
+    done_events = [e for e in events if e.get("type") == "done"]
+    assert len(done_events) == 1
+    assert done_events[0]["session_id"] == "stream-session"
+    assert done_events[0]["tools_used"] == []
+    assert done_events[0]["turn_count"] == 0
+    assert "route_geojson" in done_events[0]

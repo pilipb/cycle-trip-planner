@@ -38,8 +38,9 @@ def _mock_ors_response(distance_m: float = 350000, duration_s: float = 50400):
     }
 
 
+@patch("src.tools.route._reverse_geocode", return_value=None)
 @patch("src.tools.route.httpx.Client")
-def test_route_returns_found(mock_client_class):
+def test_route_returns_found(mock_client_class, _mock_reverse_geocode):
     mock_response = MagicMock()
     mock_response.json.return_value = _mock_ors_response(350000, 50400)
     mock_response.raise_for_status = MagicMock()
@@ -59,13 +60,15 @@ def test_route_returns_found(mock_client_class):
     assert result.distance_km == pytest.approx(350.0)
     assert result.estimated_days == 4
     assert len(result.waypoints) > 0
+    assert len(result.waypoint_names) == len(result.waypoints)
     assert result.surface
     assert result.route_type
     assert result.description
 
 
+@patch("src.tools.route._reverse_geocode", return_value=None)
 @patch("src.tools.route.httpx.Client")
-def test_route_reverse_same_distance(mock_client_class):
+def test_route_reverse_same_distance(mock_client_class, _mock_reverse_geocode):
     mock_response = MagicMock()
     mock_response.json.return_value = _mock_ors_response(280000, 40320)
     mock_response.raise_for_status = MagicMock()
@@ -107,6 +110,7 @@ def test_route_api_error_returns_estimated(mock_client_class):
     assert isinstance(result, RouteResult)
     assert result.status == "estimated"
     assert result.distance_km > 0
+    assert result.waypoint_names == []
     assert result.estimated_days >= 1
 
 
@@ -126,6 +130,7 @@ def test_route_empty_response_returns_estimated(mock_client_class):
 
     assert result.status == "estimated"
     assert result.distance_km > 0
+    assert result.waypoint_names == []
 
 
 @patch("src.tools.route.httpx.Client")

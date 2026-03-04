@@ -15,6 +15,7 @@ class RouteResult(BaseModel):
     distance_km: float
     estimated_days: int
     waypoints: list[str]
+    waypoint_names: list[str]
     surface: str
     route_type: str
     description: str
@@ -57,6 +58,29 @@ def geocode(place_name: str) -> tuple[float, float] | None:
 
 def _format_coords(lon: float, lat: float) -> str:
     return f"{lat:.5f},{lon:.5f}"
+
+
+def _reverse_geocode(lon: float, lat: float) -> str | None:
+    """Convert coordinates to a place name using OpenRouteService reverse geocode."""
+    api_key = os.environ.get("OPENROUTE_SERVICE_API_KEY")
+    if not api_key:
+        return None
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            r = client.get(
+                f"{ORS_BASE_URL}/geocode/reverse",
+                params={"point.lon": lon, "point.lat": lat, "size": 1},
+                headers={"Authorization": api_key},
+            )
+            r.raise_for_status()
+            data = r.json()
+    except (httpx.HTTPError, KeyError):
+        return None
+    features = data.get("features", [])
+    if not features:
+        return None
+    props = features[0].get("properties", {})
+    return props.get("label") or props.get("name") or props.get("locality")
 
 
 def _sample_waypoints(coordinates: list[list[float]], max_waypoints: int = 10) -> list[str]:
@@ -127,6 +151,20 @@ def get_route(
     coordinates = feature.get("geometry", {}).get("coordinates", [])
     waypoints = _sample_waypoints(coordinates)
 
+    # Reverse geocode waypoints to place names for stop recommendations
+    waypoint_names: list[str] = []
+    for wp in waypoints:
+        parts = wp.split(",")
+        if len(parts) == 2:
+            try:
+                lat, lon = float(parts[0]), float(parts[1])  # format is "lat,lon"
+                name = _reverse_geocode(lon, lat)
+                waypoint_names.append(name or wp)
+            except ValueError:
+                waypoint_names.append(wp)
+        else:
+            waypoint_names.append(wp)
+
     # Store GeoJSON for frontend only; do not include in result (avoids token limit)
     session_id = _session_id_ctx.get()
     if session_id:
@@ -138,6 +176,7 @@ def get_route(
         distance_km=round(distance_km, 2),
         estimated_days=estimated_days,
         waypoints=waypoints,
+        waypoint_names=waypoint_names,
         surface="Cycle route (cycling-regular profile)",
         route_type="OpenRouteService cycling route",
         description=(
@@ -171,6 +210,7 @@ def _estimated_fallback(
         distance_km=round(distance_km, 2),
         estimated_days=estimated_days,
         waypoints=[],
+        waypoint_names=[],
         surface="Mixed terrain, conditions unknown",
         route_type="Estimated route (no cycling route found)",
         description=(
