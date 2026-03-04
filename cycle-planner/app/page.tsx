@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { sendChatMessageStream, sendChatAnswer } from "@/lib/api";
+import { sendChatMessageStream, sendChatAnswer, getErrorMessage } from "@/lib/api";
 import type { RouteGeoJSON } from "@/lib/api";
 import { downloadGpx } from "@/lib/gpx";
 
@@ -194,7 +194,7 @@ export default function Home() {
         ...m,
         {
           role: "assistant",
-          content: `Error: ${err instanceof Error ? err.message : "Failed to get response"}`,
+          content: `Error: ${getErrorMessage(err)}`,
         },
       ]);
       setLoading(false);
@@ -293,7 +293,7 @@ export default function Home() {
         ...m,
         {
           role: "assistant",
-          content: `Error: ${err instanceof Error ? err.message : "Failed to get response"}`,
+          content: `Error: ${getErrorMessage(err)}`,
         },
       ]);
       setLoading(false);

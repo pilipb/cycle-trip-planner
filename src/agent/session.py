@@ -288,6 +288,7 @@ async def run_turn_stream_resume(
         yield {
             "type": "error",
             "message": "No pending question for this session. Send a new message instead.",
+            "code": "session_error",
         }
         return
 

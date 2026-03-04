@@ -37,10 +37,10 @@ def ask_user(question: str, options: list[str] | None = None) -> str:
 @agent.tool_plain
 def geocode(place_name: str) -> dict:
     logger.info(f"Geocoding {place_name}")
-    """Convert a place name (e.g. city, address) to longitude and latitude coordinates. Returns {'lon': float, 'lat': float} or {'error': str} if not found."""
+    """Convert a place name (e.g. city, address) to longitude and latitude coordinates. Returns {'lon': float, 'lat': float} or {'error': str, 'code': str} if not found."""
     result = _geocode(place_name)
     if result is None:
-        return {"error": f"Could not find coordinates for '{place_name}'"}
+        return {"error": f"Could not find coordinates for '{place_name}'", "code": "not_found"}
     return {"lon": result[0], "lat": result[1]}
 
 
@@ -50,10 +50,13 @@ def get_route(
     start_lat: float,
     end_lon: float,
     end_lat: float,
-) -> RouteResult:
+) -> RouteResult | dict:
     logger.info(f"Getting route from {start_lon}, {start_lat} to {end_lon}, {end_lat}")
-    """Get cycling route details between two coordinate points. Returns distance, estimated_days, and waypoint_names — place names along the actual route. Use waypoint_names for overnight stops, accommodation, and points of interest. Coordinates are in longitude, latitude order (e.g. Berlin: 13.4050, 52.5200)."""
-    return _get_route((start_lon, start_lat), (end_lon, end_lat))
+    """Get cycling route details between two coordinate points. Returns distance, estimated_days, and waypoint_names — place names along the actual route. Use waypoint_names for overnight stops, accommodation, and points of interest. On config/API errors returns {'error': str, 'code': str}. Coordinates are in longitude, latitude order (e.g. Berlin: 13.4050, 52.5200)."""
+    try:
+        return _get_route((start_lon, start_lat), (end_lon, end_lat))
+    except ValueError as e:
+        return {"error": str(e), "code": "config_error"}
 
 
 @agent.tool_plain

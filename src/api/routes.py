@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from src.agent.session import get_pending_tool_call_id, run_turn_stream, run_turn_stream_resume
+from src.api.errors import error_payload, normalize_exception
 from src.api.models import ChatRequest
 
 router = APIRouter(prefix="/api/v1")
@@ -18,7 +19,8 @@ async def _stream_chat_events(session_id: str, message: str):
         async for chunk in run_turn_stream(session_id, message):
             yield f"data: {json.dumps(chunk)}\n\n"
     except Exception as e:
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        message, code = normalize_exception(e)
+        yield f"data: {json.dumps(error_payload(message, code))}\n\n"
         raise
 
 
@@ -28,7 +30,8 @@ async def _stream_chat_events_resume(session_id: str, tool_call_id: str, value: 
         async for chunk in run_turn_stream_resume(session_id, tool_call_id, value):
             yield f"data: {json.dumps(chunk)}\n\n"
     except Exception as e:
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        message, code = normalize_exception(e)
+        yield f"data: {json.dumps(error_payload(message, code))}\n\n"
         raise
 
 
