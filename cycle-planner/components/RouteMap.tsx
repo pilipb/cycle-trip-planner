@@ -28,9 +28,15 @@ function FitBounds({ geojson }: { geojson: RouteGeoJSON }) {
   return null;
 }
 
-export default function RouteMap({ geojson }: { geojson: RouteGeoJSON }) {
+export default function RouteMap({
+  geojson,
+  className = "h-64 w-full",
+}: {
+  geojson: RouteGeoJSON;
+  className?: string;
+}) {
   return (
-    <div className="h-64 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+    <div className={`overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 ${className}`}>
       <MapContainer
         center={[50, 10]}
         zoom={5}

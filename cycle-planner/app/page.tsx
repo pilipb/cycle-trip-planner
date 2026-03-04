@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sendChatMessageStream, sendChatAnswer } from "@/lib/api";
 import type { RouteGeoJSON } from "@/lib/api";
+import { downloadGpx } from "@/lib/gpx";
 
 const RouteMap = dynamic(() => import("@/components/RouteMap"), { ssr: false });
 
@@ -117,6 +118,16 @@ export default function Home() {
   const hasPendingQuestion = messages.some(
     (m) => m.role === "assistant" && m.pending_question
   );
+
+  const activeRoute = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === "assistant" && m.route_geojson?.features?.length) {
+        return m.route_geojson;
+      }
+    }
+    return null;
+  })();
 
   const startNewChat = () => {
     setSessionId(generateSessionId());
@@ -249,7 +260,7 @@ export default function Home() {
                 },
               ];
             });
-            streamingRef.current = { thinking: "", content: "" };
+            streamingRef.current = { thinking: "", content: "", status: "" };
           }
         }
       );
@@ -312,9 +323,36 @@ export default function Home() {
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="mx-auto max-w-2xl">
-          {messages.length === 0 ? (
+      <div className="flex flex-1 min-h-0">
+        {activeRoute && (
+          <aside className="hidden w-[45%] shrink-0 flex-col border-r border-zinc-200 bg-white lg:flex dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex-1 min-h-0 p-4 pb-2">
+              <RouteMap geojson={activeRoute} className="h-full min-h-[300px] w-full" />
+            </div>
+            <div className="shrink-0 p-4 pt-2">
+              <button
+                type="button"
+                onClick={() => downloadGpx(activeRoute)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:focus:ring-offset-zinc-900"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4"
+                  aria-hidden
+                >
+                  <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 1 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                  <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+                </svg>
+                Export to GPX
+              </button>
+            </div>
+          </aside>
+        )}
+        <div className="flex-1 min-w-0 overflow-y-auto px-4 py-6">
+          <div className="mx-auto max-w-2xl">
+            {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <p className="text-zinc-500 dark:text-zinc-400">
                 Start a conversation to plan your cycling trip.
@@ -350,9 +388,6 @@ export default function Home() {
                               {msg.thinking}
                             </pre>
                           </details>
-                        ) : null}
-                        {msg.route_geojson?.features?.length ? (
-                          <RouteMap geojson={msg.route_geojson} />
                         ) : null}
                         <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-pre:my-2 prose-pre:text-xs prose-code:bg-zinc-200 prose-code:dark:bg-zinc-700 prose-code:px-1 prose-code:rounded">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
@@ -398,6 +433,7 @@ export default function Home() {
               <div ref={messagesEndRef} />
             </div>
           )}
+          </div>
         </div>
       </div>
 
